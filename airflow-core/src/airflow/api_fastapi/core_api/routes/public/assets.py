@@ -287,7 +287,14 @@ def create_asset_event(
 
     if not assets_event:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Asset with ID: `{body.asset_id}` was not found")
+
     return AssetEventResponse.model_validate(assets_event)
+
+
+class SerializationError(Exception):
+    """Custom exception for serialization errors."""
+
+    pass
 
 
 @assets_router.post(
@@ -327,15 +334,12 @@ def materialize_asset(
 
     try:
         dag: DAG = request.app.state.dag_bag.get_dag(dag_id)
-    except (ImportError, SyntaxError):
+    except ValueError as e:  # Catch deserialization errors
+        raise SerializationError(f"Deserialization error for DAG '{dag_id}': {str(e)}")
+    except SerializationError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Failed to parse DAG '{dag_id}'. Check DAG file syntax or dependencies.",
-        )
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred while trying to load DAG '{dag_id}'.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Serialization error for DAG '{dag_id}': {str(e)}",
         )
     if not dag:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"DAG with ID `{dag_id}` was not found")

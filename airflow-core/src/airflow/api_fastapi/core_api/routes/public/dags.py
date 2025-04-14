@@ -160,8 +160,6 @@ def get_dags(
         [
             status.HTTP_400_BAD_REQUEST,
             status.HTTP_404_NOT_FOUND,
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
         ]
     ),
     dependencies=[Depends(requires_access_dag(method="GET"))],
@@ -169,15 +167,10 @@ def get_dags(
 def get_dag(dag_id: str, session: SessionDep, request: Request) -> DAGResponse:
     try:
         dag: DAG = request.app.state.dag_bag.get_dag(dag_id)
-    except (ImportError, SyntaxError):
+    except RuntimeError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Failed to parse DAG '{dag_id}'. Check DAG file syntax or dependencies.",
-        )
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred while trying to load DAG '{dag_id}'.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Serialization error for DAG '{dag_id}': {str(e)}",
         )
     if not dag:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Dag with id {dag_id} was not found")
