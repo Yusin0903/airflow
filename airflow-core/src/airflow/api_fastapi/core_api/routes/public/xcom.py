@@ -22,6 +22,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Query, Request, status
 from sqlalchemy import and_, select
 
+from airflow.api.common.utils import get_dag_from_dag_bag
 from airflow.api_fastapi.auth.managers.models.resource_details import DagAccessEntity
 from airflow.api_fastapi.common.db.common import SessionDep, paginated_select
 from airflow.api_fastapi.common.parameters import QueryLimit, QueryOffset
@@ -168,6 +169,8 @@ def get_xcom_entries(
         [
             status.HTTP_400_BAD_REQUEST,
             status.HTTP_404_NOT_FOUND,
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
         ]
     ),
     dependencies=[
@@ -185,7 +188,9 @@ def create_xcom_entry(
 ) -> XComResponseNative:
     """Create an XCom entry."""
     # Validate DAG ID
-    dag: DAG = request.app.state.dag_bag.get_dag(dag_id)
+
+    dag: DAG = get_dag_from_dag_bag(request.app.state.dag_bag, dag_id)
+
     if not dag:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Dag with ID: `{dag_id}` was not found")
 
