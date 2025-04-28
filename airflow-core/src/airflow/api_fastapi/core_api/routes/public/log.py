@@ -25,6 +25,7 @@ from pydantic import PositiveInt
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
 
+from airflow.api.common.utils import get_dag_from_dag_bag
 from airflow.api_fastapi.common.db.common import SessionDep
 from airflow.api_fastapi.common.headers import HeaderAcceptJsonOrText
 from airflow.api_fastapi.common.router import AirflowRouter
@@ -127,7 +128,8 @@ def get_log(
         metadata["end_of_log"] = True
         raise HTTPException(status.HTTP_404_NOT_FOUND, "TaskInstance not found")
 
-    dag = request.app.state.dag_bag.get_dag(dag_id)
+    dag = get_dag_from_dag_bag(request.app.state.dag_bag, dag_id)
+
     if dag:
         try:
             ti.task = dag.get_task(ti.task_id)
